@@ -1,0 +1,24 @@
+name: projname
+
+# Connection string (host)
+# The default redius username is 'default', but can be omitted
+# Without specifying config file redis doesn't set any password
+# redis://localhost:6379
+
+services:
+  redis:
+    container_name: redis
+    image: redis:8
+    restart: always
+    ports:
+      # Comment to unpublish port
+      - 6379:6379
+    volumes:
+      - redis:/data
+      # Uncomment volume mounting when you need initialization script, adjust source volume path
+      # - ./dev/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+# Persist volume as needed
+volumes:
+  redis:
+
+
