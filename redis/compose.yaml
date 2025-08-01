@@ -8,7 +8,7 @@ name: projname
 services:
   redis:
     container_name: redis
-    image: redis:8
+    image: redis:8 # alternative redis:8-alpine
     restart: always
     ports:
       # Comment to unpublish port
