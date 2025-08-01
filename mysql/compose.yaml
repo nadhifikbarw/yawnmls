@@ -1,0 +1,32 @@
+name: projname
+
+# DB string (host, root)
+# mysql://root:mysql-password@localhost:3306/app
+# DB string (host, user)
+# mysql://user:mysql-password@localhost:3306/app
+
+
+services:
+  database:
+    container_name: database
+    image: mysql:8
+    restart: alwasys
+    ports:
+      # Comment to unpublish port
+      - 3306:3306
+    environment:
+      # https://hub.docker.com/_/mysql
+      MYSQL_ROOT_PASSWORD: mysql-password
+      MYSQL_DATABASE: app
+      # Uncomment if you need extra user
+      # MYSQL_USER: user
+      # MYSQL_PASSWORD: mysql-password
+    volumes:
+      - mysql:/var/lib/mysql
+      # Uncomment volume mounting when you need initialization script, adjust source volume path
+      # - ./dev/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+# Persist volume as needed
+volumes:
+  mysql:
+
+
