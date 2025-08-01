@@ -7,7 +7,7 @@ services:
   database:
     container_name: database
     image: postgres:17
-    restart: alwasys
+    restart: always
     ports:
       # Comment to unpublish port
       - 5432:5432
