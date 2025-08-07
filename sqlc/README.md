@@ -1,1 +1,1 @@
-`migrations` and `queries` for convenient copy at project root that uses `sqlc`
+`migrations` and `queries` folders for convenient copy from project root that uses `sqlc`

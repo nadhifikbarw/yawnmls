@@ -12,18 +12,25 @@ sql:
         out: pkg/gen/gensql
         # Use this sql package
         sql_package: pgx/v5 # Alternative: database/sql
-        # Generate `json` tags on Model structs
-        emit_json_tags: true
-        # Apply snake_casing on DB column name for `json` tags generation
-        # e.g column with name `FullName` produces `json:"full_name"`
-        json_tags_case_style: snake
-        # Generate code that return empty slice for queries marked with `:many` instead of `nil``
-        emit_empty_slices: true
         # Don't generate code that use pointer for null types
         # Prefer using `pgtype.XxX` types for `pgx/v5`
         # or `sql.NullXxX` types for `database/sql`
-        #
         # Further exploration for this behavior: https://github.com/nadhifikbarw/x-go-painless-null/
         emit_pointers_for_null_types: false
+        # Prefer to disable json tags generation in Model structs.
+        # Warning: enabling `json` tags generation often encourages coupling between interface and storage model
+        emit_json_tags: false
+        # Apply snake_casing on DB column name for `json` tags generation
+        # e.g column with name `FullName` produces `json:"full_name"`
+        json_tags_case_style: snake
+        # Generate code that return empty slice for queries marked with `:many` instead of `nil`
+        emit_empty_slices: true
         # Codegen overrides reference: https://docs.sqlc.dev/en/latest/howto/overrides.html
+        # overrides:
+        #   - db_type: "timestamptz"
+        #     go_type:
+        #       import: "github.com/guregu/null/v6"
+        #       package: "null"
+        #       type: "Time"
+        #     nullable: true
 
