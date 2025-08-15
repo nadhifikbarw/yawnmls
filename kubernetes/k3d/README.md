@@ -1,21 +1,19 @@
-# K3D Local Cluster Setup Cheat Sheet
+# K3D Local Cluster Cheat Sheet
 
-Setup local k3s Cluster using k3d with or without extra agent(s) +
+Setup local k3s cluster using k3d with or without extra agent(s) +
 k3d-managed registry and ingress controller.
 
-- [K3D Local Cluster Setup Cheat Sheet](#k3d-local-cluster-setup-cheat-sheet)
-  - [Terminology](#terminology)
-  - [1 Server, 0 Agent, k3d-managed Local Registry, 8080 ingress Example](#1-server-0-agent-k3d-managed-local-registry-8080-ingress-example)
+- [K3D Local Cluster Cheat Sheet](#k3d-local-cluster-cheat-sheet)
+  - [Terminologies \& components](#terminologies--components)
+  - [1 Server, 0 Agent, k3d-managed local registry, 8080 ingress Example](#1-server-0-agent-k3d-managed-local-registry-8080-ingress-example)
   - [1 Server, 2 Agents](#1-server-2-agents)
   - [Checking exposed ports](#checking-exposed-ports)
   - [k3d auto-configured `~/.kube/config`](#k3d-auto-configured-kubeconfig)
-  - [Pushing and Pulling Image from Local Registry](#pushing-and-pulling-image-from-local-registry)
-  - [Delete image registry](#delete-image-registry)
+  - [Pushing and pulling images from local registry](#pushing-and-pulling-images-from-local-registry)
+  - [Adding additional ingress port mapping](#adding-additional-ingress-port-mapping)
+  - [Removing image registry (containers)](#removing-image-registry-containers)
 
-K3d uses [`https://hub.docker.com/_/registry`](https://hub.docker.com/_/registry)
-for local image registry. K3d uses `Traefik` for ingress controller.
-
-## Terminology
+## Terminologies & components
 
 - A server node is defined as a host running the k3s server command,
   with control-plane and datastore components managed by K3s.
@@ -24,9 +22,15 @@ for local image registry. K3d uses `Traefik` for ingress controller.
 - Both servers and agents run the `kubelet`, container runtime, and CNI
   which allow use case of using a single server node as complete cluster.
 
-## 1 Server, 0 Agent, k3d-managed Local Registry, 8080 ingress Example
+---
 
-Registry DOESN'T need to be pre-created through `k3d registry create`.
+- k3d deploys [`https://hub.docker.com/_/registry`](https://hub.docker.com/_/registry)
+  for image registry
+- k3d uses `Traefik` as [ingress controller](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/).
+
+## 1 Server, 0 Agent, k3d-managed local registry, 8080 ingress Example
+
+Command below doesn't require Registry to be pre-created using `k3d registry create`.
 
 ```sh
 # --api-port is not required, but useful for demo below
@@ -88,26 +92,32 @@ users:
       client-key-data: DATA+OMITTED
 ```
 
-## Pushing and Pulling Image from Local Registry
+## Pushing and pulling images from local registry
 
 Local registry setup using command above uses `5555` as exposed port, hence to
-push into this local registry FROM YOUR LOCAL MACHINE, you need to tag image
+push into this local registry FROM THE LOCAL HOST MACHINE, you need to tag image
 with something like `localhost:5555/image-name:v1` and push it accordingly.
 
+Example:
+
 ```
-docker pull nginx:latest
-docker tag nginx:latest localhost:5555/nginx:latest
-docker push localhost:5555/nginx:latest
+docker build . -t localhost:5555/example-repo-name/example-image-name:latest
+docker push localhost:5555/example-repo-name/example-image-name:latest
 ```
 
 When authoring the `Deployment` manifest, simply use the `registry` container
 name and its designated internal port (e.g `5000`), example:
 `image: k3s-default-registry:5000/image-name`.
 
-k3d has setup host resolution to correctly pull image from that local registry
-container.
+When creating a cluster with `--registry-create`, k3d setups hostname resolution
+when Pod specifies `k3s-default-registry` to be resolved appropriately in order
+to use local image registry to create a container.
 
-## Delete image registry
+## Adding additional ingress port mapping
+
+Use command such [`k3d cluster edit --port-add 5432:5432@loadbalancer`](https://k3d.io/v5.8.3/usage/commands/k3d_cluster_edit/)
+
+## Removing image registry (containers)
 
 https://k3d.io/v4.4.8/usage/commands/k3d_registry_delete/
 
