@@ -24,5 +24,3 @@ services:
 # Persist volume as needed
 volumes:
   postgres:
-
-

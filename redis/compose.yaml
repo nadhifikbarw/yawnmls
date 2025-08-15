@@ -1,7 +1,7 @@
 name: projname
 
 # Connection string (host)
-# The default redius username is 'default', but can be omitted
+# The default redis username is 'default', but can be omitted
 # Without specifying config file redis doesn't set any password
 # redis://localhost:6379
 
@@ -20,5 +20,3 @@ services:
 # Persist volume as needed
 volumes:
   redis:
-
-
