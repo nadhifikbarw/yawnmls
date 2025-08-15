@@ -9,7 +9,7 @@ k3d-managed registry and ingress controller.
   - [1 Server, 2 Agents](#1-server-2-agents)
   - [Checking exposed ports](#checking-exposed-ports)
   - [k3d auto-configured `~/.kube/config`](#k3d-auto-configured-kubeconfig)
-  - [Pushing to Local Registry](#pushing-to-local-registry)
+  - [Pushing and Pulling Image from Local Registry](#pushing-and-pulling-image-from-local-registry)
   - [Delete image registry](#delete-image-registry)
 
 K3d uses [`https://hub.docker.com/_/registry`](https://hub.docker.com/_/registry)
@@ -59,8 +59,8 @@ If you create cluster using command above, you can check exposed ports
 by `serverlb` and `registry` container as such:
 
 - `6550` exposes Kubernetes API to host
-- `8081` mapped to additional rules specified in command above
-- `5555` for image registry (this one not behind Ingress controller)
+- `8081` exposes additional ports for ingress, as shown above
+- `5555` exposes image registry interface (this one not behind Ingress controller)
 
 ## k3d auto-configured `~/.kube/config`
 
@@ -88,17 +88,24 @@ users:
       client-key-data: DATA+OMITTED
 ```
 
-## Pushing to Local Registry
+## Pushing and Pulling Image from Local Registry
 
 Local registry setup using command above uses `5555` as exposed port, hence to
-push into this local registry, you need to tag image with something like
-`localhost:5555/image-name:v1` and push it accordingly.
+push into this local registry FROM YOUR LOCAL MACHINE, you need to tag image
+with something like `localhost:5555/image-name:v1` and push it accordingly.
 
 ```
 docker pull nginx:latest
 docker tag nginx:latest localhost:5555/nginx:latest
 docker push localhost:5555/nginx:latest
 ```
+
+When authoring the `Deployment` manifest, simply use the `registry` container
+name and its designated internal port (e.g `5000`), example:
+`image: k3s-default-registry:5000/image-name`.
+
+k3d has setup host resolution to correctly pull image from that local registry
+container.
 
 ## Delete image registry
 
