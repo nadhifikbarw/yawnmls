@@ -1,3 +1,3 @@
 # Yawnmls
 
-Bunch of common YA(wn)MLs and configs for reference.
+Collection of YAML(s), configuration, Dockerfile, cheat sheets, folder structures for personal reference.
