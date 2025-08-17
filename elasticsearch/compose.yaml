@@ -1,0 +1,152 @@
+name: projname
+
+# Single-node Elastic cluster + Kibana, with HTTPS enabled
+# to provide environment closer to production cluster.
+#
+# This compose configuration is very flexible for tight application development
+# where you like to have workable cluster in using
+#
+# Application may use http_ca.crt in es_certs volume
+# to secure connection with elasticsearch
+services:
+  setup:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.1.2
+    volumes:
+      - certs:/usr/share/elasticsearch/config/certs
+    user: "0"
+    environment:
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
+    command: >
+      bash -c '
+        if [ x${ELASTIC_PASSWORD} == x ]; then
+          echo "Set the ELASTIC_PASSWORD environment variable in the .env file";
+          exit 1;
+        fi;
+        if [ ! -f config/certs/ca.zip ]; then
+          echo "Creating CA";
+          bin/elasticsearch-certutil ca --silent --pem -out config/certs/ca.zip;
+          unzip config/certs/ca.zip -d config/certs;
+        fi;
+        if [ ! -f config/certs/certs.zip ]; then
+          echo "Creating certs";
+          echo -ne \
+          "instances:\n"\
+          "  - name: elasticsearch\n"\
+          "    dns:\n"\
+          "      - elasticsearch\n"\
+          "      - localhost\n"\
+          "    ip:\n"\
+          "      - 127.0.0.1\n"\
+          > config/certs/instances.yml;
+          bin/elasticsearch-certutil cert --silent --pem -out config/certs/certs.zip --in config/certs/instances.yml --ca-cert config/certs/ca/ca.crt --ca-key config/certs/ca/ca.key;
+          unzip config/certs/certs.zip -d config/certs;
+        fi;
+        echo "Setting file permissions"
+        chown -R root:root config/certs;
+        find . -type d -exec chmod 750 \{\} \;;
+        find . -type f -exec chmod 640 \{\} \;;
+        echo "Waiting for Elasticsearch availability";
+        until curl -s --cacert config/certs/ca/ca.crt https://elasticsearch:9200 | grep -q "missing authentication credentials"; do sleep 30; done;
+        echo "Setting kibana_system password";
+        until curl -s -X POST --cacert config/certs/ca/ca.crt -u "elastic:${ELASTIC_PASSWORD}" -H "Content-Type: application/json" https://elasticsearch:9200/_security/user/kibana_system/_password -d "{\"password\":\"${ELASTIC_PASSWORD}\"}" | grep -q "^{}"; do sleep 10; done;
+        echo "All done!";
+      '
+    healthcheck:
+      test: ["CMD-SHELL", "[ -f config/certs/elasticsearch/elasticsearch.crt ]"]
+      interval: 1s
+      timeout: 5s
+      retries: 120
+
+  elasticsearch:
+    depends_on:
+      setup:
+        condition: service_healthy
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.1.2
+    # Prefer using container memory limit, instead of using JVM opts
+    mem_limit: 2GB
+    environment:
+      # Inform node that it uses this value as its hostname
+      # this is used for automatic security setup during certificate creation
+      # https://github.com/elastic/elasticsearch/blob/f8a72d9020fe38b5b6c8c935e42f086fddf63b30/x-pack/plugin/security/cli/src/main/java/org/elasticsearch/xpack/security/cli/AutoConfigureNode.java#L277C9-L277C141
+      node.name: elasticsearch
+      # This configuration ensure multi-node discovery behavior to be disabled
+      discovery.type: single-node
+      # Where node data will be stored, match es_data volume mount below
+      path.data: /usr/share/elasticsearch/data
+      # We're going to expect this node to perform  automatic security setup
+      # https://www.elastic.co/docs/deploy-manage/security/self-auto-setup#stack-security-certificates
+      #
+      # http_ca.crt is generated and stored within
+      # /usr/share/elasticsearch/config/certs by default
+      #
+      # Later, in order for Kibana to connect to elasticsearch via HTTPS
+      # Kibana need to be able to read elasticsearch's http_ca.crt
+      #
+      # Use this to bootstrap `elastic` and `kibana_system` users password
+      xpack.security.enabled: true
+      xpack.security.http.ssl.enabled: true
+      xpack.security.http.ssl.key: certs/elasticsearch/elasticsearch.key
+      xpack.security.http.ssl.certificate: certs/elasticsearch/elasticsearch.crt
+      xpack.security.http.ssl.certificate_authorities: certs/ca/ca.crt
+      xpack.security.transport.ssl.enabled: true
+      xpack.security.transport.ssl.key: certs/elasticsearch/elasticsearch.key
+      xpack.security.transport.ssl.certificate: certs/elasticsearch/elasticsearch.crt
+      xpack.security.transport.ssl.certificate_authorities: certs/ca/ca.crt
+      xpack.security.transport.ssl.verification_mode: certificate
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
+    volumes:
+      # Load prepared certificates
+      - certs:/usr/share/elasticsearch/config/certs
+      # This is just the node data mount
+      - es_data:/usr/share/elasticsearch/data
+    ports:
+      - 9200:9200
+    # Setup this `healthcheck` in order to inform Kibana
+    # to wait until node completes its bootstrapping
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -s --cacert config/certs/ca/ca.crt https://localhost:9200 | grep -q 'missing authentication credentials'",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 120
+
+  kibana:
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    image: docker.elastic.co/kibana/kibana:9.1.2
+    # Prefer using container memory limit, instead of using JVM opts
+    mem_limit: 1GB
+
+    environment:
+      SERVERNAME: kibana
+      # As explained above, communication between Kibana and Elasticsearch
+      # will be carried on top of HTTPS. Generated CA by elasticsearch
+      # also has been mounted at /certs/http_ca.crt
+      ELASTICSEARCH_HOSTS: https://elasticsearch:9200
+      ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES: config/certs/ca/ca.crt
+      ELASTICSEARCH_PASSWORD: ${ELASTIC_PASSWORD}
+      ELASTICSEARCH_USERNAME: kibana_system
+    volumes:
+      - certs:/usr/share/kibana/config/certs
+      - kibana_data:/usr/share/kibana/data
+
+    ports:
+      - 5601:5601
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -s -I http://localhost:5601 | grep -q 'HTTP/1.1 302 Found'",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 120
+
+volumes:
+  certs:
+  es_data:
+  kibana_data:
