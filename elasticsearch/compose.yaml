@@ -15,7 +15,7 @@ services:
       - certs:/usr/share/elasticsearch/config/certs
     user: "0"
     environment:
-      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-es-password}
     command: >
       bash -c '
         if [ x${ELASTIC_PASSWORD} == x ]; then
