@@ -2,9 +2,8 @@ name: projname
 
 # DB string (host)
 # postgres://postgres:pg-password@localhost:5432/app
-
 services:
-  database:
+  postgres:
     container_name: database
     image: postgres:17
     restart: always

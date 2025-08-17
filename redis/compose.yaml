@@ -4,7 +4,6 @@ name: projname
 # The default redis username is 'default', but can be omitted
 # Without specifying config file redis doesn't set any password
 # redis://localhost:6379
-
 services:
   redis:
     container_name: redis

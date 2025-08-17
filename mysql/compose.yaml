@@ -4,10 +4,8 @@ name: projname
 # mysql://root:mysql-password@localhost:3306/app
 # DB string (host, user)
 # mysql://user:mysql-password@localhost:3306/app
-
-
 services:
-  database:
+  mysql:
     container_name: database
     image: mysql:8
     restart: always
@@ -28,5 +26,3 @@ services:
 # Persist volume as needed
 volumes:
   mysql:
-
-
