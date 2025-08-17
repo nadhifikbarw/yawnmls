@@ -1,13 +1,4 @@
 name: projname
-
-# Single-node Elastic cluster + Kibana, with HTTPS enabled
-# to provide environment closer to production cluster.
-#
-# This compose configuration is very flexible for tight application development
-# where you like to have workable cluster in using
-#
-# Application may use http_ca.crt in es_certs volume
-# to secure connection with elasticsearch
 services:
   setup:
     image: docker.elastic.co/elasticsearch/elasticsearch:9.1.2
@@ -65,24 +56,12 @@ services:
     # Prefer using container memory limit, instead of using JVM opts
     mem_limit: 2GB
     environment:
-      # Inform node that it uses this value as its hostname
-      # this is used for automatic security setup during certificate creation
-      # https://github.com/elastic/elasticsearch/blob/f8a72d9020fe38b5b6c8c935e42f086fddf63b30/x-pack/plugin/security/cli/src/main/java/org/elasticsearch/xpack/security/cli/AutoConfigureNode.java#L277C9-L277C141
       node.name: elasticsearch
       # This configuration ensure multi-node discovery behavior to be disabled
       discovery.type: single-node
       # Where node data will be stored, match es_data volume mount below
       path.data: /usr/share/elasticsearch/data
-      # We're going to expect this node to perform  automatic security setup
-      # https://www.elastic.co/docs/deploy-manage/security/self-auto-setup#stack-security-certificates
-      #
-      # http_ca.crt is generated and stored within
-      # /usr/share/elasticsearch/config/certs by default
-      #
-      # Later, in order for Kibana to connect to elasticsearch via HTTPS
-      # Kibana need to be able to read elasticsearch's http_ca.crt
-      #
-      # Use this to bootstrap `elastic` and `kibana_system` users password
+      # Networking configuration
       xpack.security.enabled: true
       xpack.security.http.ssl.enabled: true
       xpack.security.http.ssl.key: certs/elasticsearch/elasticsearch.key
@@ -120,12 +99,10 @@ services:
     image: docker.elastic.co/kibana/kibana:9.1.2
     # Prefer using container memory limit, instead of using JVM opts
     mem_limit: 1GB
-
     environment:
       SERVERNAME: kibana
-      # As explained above, communication between Kibana and Elasticsearch
-      # will be carried on top of HTTPS. Generated CA by elasticsearch
-      # also has been mounted at /certs/http_ca.crt
+      # Communication between Kibana and Elasticsearch
+      # will be carried on top of HTTPS
       ELASTICSEARCH_HOSTS: https://elasticsearch:9200
       ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES: config/certs/ca/ca.crt
       ELASTICSEARCH_PASSWORD: ${ELASTIC_PASSWORD}
