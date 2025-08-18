@@ -5,6 +5,8 @@ to provide development environment closer to production cluster.
 
 - Hide away certificates configuration between Kibana and Elastic
 - Provide ready-to-use `elastic` user with password you want
+- `http://localhost:5601` to access Kibana (no HTTPS). Use `elastic` and `es-password`
+- `https://localhost:9200` to connect to ElasticSearch instance (Use HTTPS)
 
 This compose configuration is explicit, and convenient for tighter development environment
 if you already use `compose.yaml` for other service dependencies.
@@ -15,9 +17,6 @@ where it requires manual steps to connect Kibana.
 
 Or https://github.com/elastic/start-local/blob/main/start-local.sh where it requires extra
 step to setup bootstrap your compose file.
-
-- `http://localhost:5601` to access Kibana (no HTTPS). Use `elastic` and `es-password`
-- `https://localhost:9200` to connect to ElasticSearch instance (Use HTTPS)
 
 # CA cert
 
