@@ -9,7 +9,7 @@ services:
       ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-es-password}
     command: >
       bash -c '
-        if [ x${ELASTIC_PASSWORD} == x ]; then
+        if [ x${ELASTIC_PASSWORD:-es-password} == x ]; then
           echo "Set the ELASTIC_PASSWORD environment variable in the .env file";
           exit 1;
         fi;
@@ -39,7 +39,7 @@ services:
         echo "Waiting for Elasticsearch availability";
         until curl -s --cacert config/certs/ca/ca.crt https://elasticsearch:9200 | grep -q "missing authentication credentials"; do sleep 30; done;
         echo "Setting kibana_system password";
-        until curl -s -X POST --cacert config/certs/ca/ca.crt -u "elastic:${ELASTIC_PASSWORD}" -H "Content-Type: application/json" https://elasticsearch:9200/_security/user/kibana_system/_password -d "{\"password\":\"${ELASTIC_PASSWORD}\"}" | grep -q "^{}"; do sleep 10; done;
+        until curl -s -X POST --cacert config/certs/ca/ca.crt -u "elastic:${ELASTIC_PASSWORD:-es-password}" -H "Content-Type: application/json" https://elasticsearch:9200/_security/user/kibana_system/_password -d "{\"password\":\"${ELASTIC_PASSWORD:-es-password}\"}" | grep -q "^{}"; do sleep 10; done;
         echo "All done!";
       '
     healthcheck:
@@ -72,7 +72,7 @@ services:
       xpack.security.transport.ssl.certificate: certs/elasticsearch/elasticsearch.crt
       xpack.security.transport.ssl.certificate_authorities: certs/ca/ca.crt
       xpack.security.transport.ssl.verification_mode: certificate
-      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-es-password}
     volumes:
       # Load prepared certificates
       - certs:/usr/share/elasticsearch/config/certs
@@ -105,7 +105,7 @@ services:
       # will be carried on top of HTTPS
       ELASTICSEARCH_HOSTS: https://elasticsearch:9200
       ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES: config/certs/ca/ca.crt
-      ELASTICSEARCH_PASSWORD: ${ELASTIC_PASSWORD}
+      ELASTICSEARCH_PASSWORD: ${ELASTIC_PASSWORD:-es-password}
       ELASTICSEARCH_USERNAME: kibana_system
     volumes:
       - certs:/usr/share/kibana/config/certs
