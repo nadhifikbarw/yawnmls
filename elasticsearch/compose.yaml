@@ -7,6 +7,14 @@ services:
     user: "0"
     environment:
       ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-es-password}
+    # This script will generate all the necessary
+    # certificates and store it in `certs` volume
+    #
+    # 1 CA cert
+    # Elasticsearch node certs for TLS + HTTPS transports
+    #
+    # Kibana will use such CA cert to secure communication between Kibana
+    # and the `elasticsearch` HTTPS endpoint
     command: >
       bash -c '
         if [ x${ELASTIC_PASSWORD:-es-password} == x ]; then
