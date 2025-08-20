@@ -21,15 +21,17 @@ services:
       # Kafka cluster networking with KRaft
       # Configuration is set and forget, until you're trying to debug something..
       #
-      # So here's a (not so) crash course on Kafka cluster networking using Kraft
-      # to ensure proper understanding when you're connecting to a Kafka cluster.
+      # So here's a (not so short) crash course on Kafka cluster networking using Kraft
+      # to ensure you understand what happens when connecting to a Kafka cluster.
       #
-      # KRaft effectively replaces Zookeeper, it also provides more centralized
-      # setup for local development environment. KRaft essentially allows using
-      # a (broker) node to perform Raft protocol, replacing Zookeeper.
-      # A node that also participates in Raft is called a controller.
+      # KRaft effectively replaces Zookeeper, using it also help centralized
+      # setup for local development environment, requiring one less service
+      # dependency.
       #
-      # KRaft controllers will carry Raft responsibility in a cluster previously
+      # KRaft allows the use of (broker) node(s) to perform Raft protocol,
+      # replacing Zookeeper. A node participating in KRaft is called a controller.
+      #
+      # KRaft controllers will carry out Raft responsibility in a cluster previously
       # performed by Zookeeper
 
       # Kafka Listeners
@@ -41,21 +43,21 @@ services:
       # will be listening to. Let's observe specific configuration below:
       KAFKA_LISTENERS: "PLAINTEXT://broker:29092,CONTROLLER://broker:29093,PLAINTEXT_HOST://0.0.0.0:9092"
       #
-      # Remember, in Docker context this configuration alone doesn't
-      # automatically forwarded listener to host-machine. We will need to
-      # forward one of this listener later using `ports` configuration.
-      # for now read on
+      # Remember, in Docker context this configurations alone won't
+      # automatically port-forward anything to host machine. We will need to
+      # forward one of the listener port later using `ports` configuration.
+      # For now, read on!
       #
-      # The value format of this configuration follows this format
+      # The value of this configuration follows this format
       #   {LISTENER_NAME}://{HOSTNAME}:{PORT}
       # and you can have multiple listeners separated by commas.
 
-      # Next, let's talk about what the `LISTENER_NAME` mean here. This value
-      # such as "PLAINTEXT", "CONTROLLER", "PLAINTEXT_HOST" actually related to
+      # Next, let's talk about what the `LISTENER_NAME` mean here. The values
+      # "PLAINTEXT", "CONTROLLER", "PLAINTEXT_HOST" are actually related to
       # the next configuration called `KAFKA_LISTENER_SECURITY_PROTOCOL_MAP`
       #
-      # This configuration maps what transport protocol to use for each listener
-      # name.
+      # KAFKA_LISTENER_SECURITY_PROTOCOL_MAP maps what transport protocol
+      #  to use for each listener name.
       #
       # https://kafka.apache.org/25/javadoc/org/apache/kafka/common/security/auth/SecurityProtocol.html
       # Kafka supports 4 protocols:
@@ -71,52 +73,58 @@ services:
       # It's a convenient approach once you understand the relationship between
       # these 2 configurations, but absolutely confusing if you haven't.
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT"
-      # To provide further example you can use your own value
+      # To provide further example you can use more descriptive value
       # for your LISTENER_NAME. Something like `DOCKER_INTERNAL_LISTENER`
-      # might be helpful to provide useful context about that listener.
+      # doing this might be helpful to provide useful context about each listener.
       #
-      # Now let's see summarized again the 3 listeners that are opened by this
+      # Now let's see summarized the 3 listeners that are opened on this
       # node:
       # - broker:29092 (listener name: PLAINTEXT, security protocol: plaintext)
-      #                client needs to connect target hostname `broker` to connect using this port
-      #                this is the listener that will be used for other service
-      #                to connect to this broker within internal Docker containers
-      #                network
+      #                client uses `broker:29202` to connect through this listener
+      #                this listener will primarily be used for other services
+      #                to connect to this broker within internal Docker network
+      #                You can see how broker:29092 value be used by other
+      #                services within other services configuration below
+      #                as well as KAFKA_INTER_BROKER_LISTENER_NAME
       # - broker:29093 (listener name: CONTROLLER, security protocol: plaintext)
-      #                judging by the listener name, this listener will be used
-      #                for KRaft controller communication
+      #                this listener will be used as the lister used for all
+      #                communication related to this node role as KRaft controller.
+      #                you can see how this is being used in KAFKA_CONTROLLER_LISTENER_NAMES
       # - 0.0.0.0:9092 (listener name: PLAINTEXT_HOST, security protocol: plaintext)
-      #                judging by the hostname used, it targets any network hostname.
+      #                this listener accept any hostname communicating through
+      #                port 9092, since it accepts any hostname this setup is
+      #                done to facilitate all incoming connections into the
+      #                cluster.
       #
       #                This is the listener that are going to listen to
-      #                connections from host machine, this port will be exposed
-      #                to the host machine to allow client connection from host
-      #                machine to provide Kafka cluster access for
-      #                use case such as: host machine application development.
+      #                connections from host machine, 9092 port will be exposed
+      #                to the host machine to allow client connections from host
+      #                machine to this Kafka cluster.
       #                (You can also see how this port will be forwarded in `ports` configuration below)
       #
       # You can check out https://redhat-developer-demos.github.io/kafka-tutorial/kafka-tutorial/1.0.x/08-kafka-listeners.html
-      # to see diagram explaining this configuration.
+      # to see diagram how KAFKA_LISTENERS, KAFKA_LISTENER_SECURITY_PROTOCOL_MAP,
+      # and KAFKA_ADVERTISED_LISTENERS related to each others.
 
       # Next we're going to talk about "bootstrap server".
       #
-      # In practice, in order for a client to connect to Kafka cluster
-      # you provide list of of "bootstrap.servers", at least one of server
-      # from that list should be reachable by the client for service
+      # In practice, in order for a Kafka client to connect to Kafka cluster
+      # you provide its "bootstrap.servers" list of server addresses, at least
+      # one server from the list should be reachable by the client for service
       # discovery
       #
       # "Service discovery" in this context means that the client will ask
       # this "bootstrap.server" to give them valid listeners that
-      # the client may use to connect to a Kafka Cluster. At least one
+      # the client can use to connect to a Kafka Cluster. At least one
       # listener returned by the bootstrap server must be reachable
       # by the client
       #
-      # The `KAFKA_ADVERTISED_LISTENERS` is the list of listeners
-      # that this node will be "advertised" when this node is used as
+      # The `KAFKA_ADVERTISED_LISTENERS` configuration is the list of listeners
+      # that this node will be "advertised" when this node is targeted as
       # one of "bootstrap server".
       #
-      # The advertised listeners sometimes need to be different than
-      # underlying listeners that this node use.
+      # Due to the nature of networking, the advertised listeners often
+      # need to be different than the underlying listeners that a node use.
       #
       # Because not all listeners will be reachable by
       # the client. Service discovery need to be aware of how a connection
@@ -130,33 +138,41 @@ services:
       # Scenario: We're developing an application that post into a Kafka topic.
       # This application will be run in host machine during development
       #
-      # This container 9092 port will be exposed to host machine according to
-      # `ports` configuration in this compose below. Hence, this node can be used
-      # as "bootstrap server" by our application client.
+      # This container 9092 port will be exposed to host machine in
+      # `ports` configuration in this `compose.yaml` (see below).
       #
-      # This application will need to use `localhost:9092` for its "bootstrap server"
-      # because this container is reachable via `localhost:9092`
+      # Hence, this node can be used  as "bootstrap server" by our application
+      # client.
+      #
+      # The Kafka client for the application will put `localhost:9092`
+      # for its "bootstrap server" list because this service container is
+      # reachable via `localhost:9092` for them.
       #
       # Once Kafka client need to establish connection to this cluster
       #
-      # 1. It asks this "bootstrap server" how to connect to this cluster
+      # 1. It asks the "bootstrap server" how to connect to this cluster.
       #
-      # 2. this node acting as "bootstrap server" will return all listeners
-      #    "advertised" above
+      # 2. This node, acting as "bootstrap server", returns all "advertised"
+      #    listeners above
       #
-      # 3. The client in our host-machine try to connect using
+      # 3. Receiving 2 listeners from the "bootstrap server" reply
+      #    client in our host machine try to connect using
       #    first advertised listener PLAINTEXT://broker:29092.
-      #    Connection attempts failed. Because host-machine will not be able to
+      #    Connection attempts failed. Because host machine will not be able to
       #    resolve `broker:29092`.
       #
-      # 4. The client tries connecting to the second listener PLAINTEXT://localhost:9092
+      # 4. The client tries the second listener PLAINTEXT://localhost:9092
       #    It will succeed because localhost:9092 is reachable address from
-      #    host machine to connect to this node. The underlying listener
-      #    that actually listens to this advertised listener is
-      #    PLAINTEXT_HOST://0.0.0.0:9092. See KAFKA_LISTENERS above
+      #    host machine.
       #
-      # 5. This node no longer "acts" as bootstrap server at this point.
-      #    It acts as the entrypoint into the Kafka cluster for that client
+      #    The underlying listener that listens to this address is
+      #    PLAINTEXT_HOST://0.0.0.0:9092. `localhost:9092` is acceptable here
+      #    because 0.0.0.0 configuration accepts any hostname that uses the port
+      #    See KAFKA_LISTENERS above.
+      #
+      # 5. When the client established cluster connection with this node
+      #    it no longer "acts" as bootstrap server. It acts as the entrypoint
+      #    into the Kafka cluster for that client
       #
       # This setup may seem silly for small cluster with 1 broker. But imagine
       # a cluster with 100-1000 brokers. It's completely necessary service
@@ -165,19 +181,19 @@ services:
       # Continuing with scenario above, the first advertised listener is meant
       # to be reachable for client connecting to the Kafka cluster
       # from internal docker network, since this node is reachable via
-      # `broker:29092` handled by `PLAINTEXT://broker:29092`. See KAFKA_LISTENERS
-      # above.
+      # `broker:29092` within internal Docker network, with underlying listener
+      # handled by `PLAINTEXT://broker:29092`. See KAFKA_LISTENERS above.
 
-      #
-      # Now let's dedicate listeners that this node will be using
+      # Now let's configure which listeners that this node will be using for
+      # distributed broker and controller communication.
+
       # Listener name PLAINTEXT will be used to facilitate inter-broker communication
       KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
-      # Listener name CONTROLLER will be used for Kraft communication
+      # Listener name CONTROLLER will be used for KRaft communication
       KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
-      # See KAFKA_LISTENERS if you want to see listeners for this node.
-      #
-      # With networking concern out of the way, we now configure the node itself
+      # See KAFKA_LISTENERS if you want to see all listeners name for this node.
 
+      # With networking concern out of the way, we now configure the node itself
       # Kafka Broker + Controller configuration
       # Node Identifier, required in KRaft mode
       # https://docs.confluent.io/platform/current/installation/configuration/broker-configs.html#node-id
@@ -192,18 +208,17 @@ services:
       # Since we know that this node uses listener "CONTROLLER" which uses 29093
       # See `KAFKA_CONTROLLER_LISTENER_NAMES` and `KAFKA_LISTENERS`
 
-      #
       # Monitoring (JMX exporter)
       #
       # Kafka provides JMX exporter for monitoring metrics
-      # I configure this on by default, but i don't include
-      # Prometheus + Grafana configuration in this compose by default
+      # I configure this on by default, but I don't include
+      # Prometheus + Grafana configuration in this `compose.yaml`
       KAFKA_JMX_PORT: 9101
       KAFKA_JMX_HOSTNAME: localhost
       KAFKA_LOG_DIRS: "/tmp/kraft-combined-logs"
 
-      # Replication factor defaults to 3
-      # 1 is required for single-node deployment
+      # Replication factor default is `3`
+      # `1` is required for single-node deployment
       # https://docs.confluent.io/platform/current/installation/configuration/broker-configs.html#confluent-tier-metadata-replication-factor
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       # TBD docs
@@ -211,11 +226,12 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       # https://docs.confluent.io/platform/current/installation/configuration/broker-configs.html#transaction-state-log-min-isr
       # The minimum number of replicas that must acknowledge a write to transaction topic in order to be considered successful.
-      # Default to 2, require 1 for single-node deployment
+      # Default to `2`, `1` is required for single-node deployment
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       # https://docs.confluent.io/platform/current/installation/configuration/broker-configs.html#transaction-state-log-replication-factor
-      # The replication factor for the transaction topic (set higher to ensure availability). Internal topic creation will fail until the cluster size meets this replication factor requirement.
-      # Default to 3, require 1 for single-node deployment
+      # The replication factor for the transaction topic (set higher to ensure availability). Internal topic creation
+      # will fail until the cluster size meets this replication factor requirement.
+      # Default to `3`, require `1` for single-node deployment
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
     ports:
       # See `KAFKA_LISTENERS` and `KAFKA_ADVERTISED_LISTENERS`
@@ -230,26 +246,26 @@ services:
     container_name: schema-registry
     depends_on:
       - broker
-    ports:
-      - "8081:8081"
     environment:
-      # Similar networking concepts about listeners and all above
+      # Similar networking concepts about listeners
       SCHEMA_REGISTRY_HOST_NAME: schema-registry
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: "broker:29092"
       SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+    ports:
+      - "8081:8081"
 
   rest-proxy:
     image: confluentinc/cp-kafka-rest:8.0.0
+    hostname: rest-proxy
+    container_name: rest-proxy
     depends_on:
       - broker
       - schema-registry
-    ports:
-      - 8082:8082
-    hostname: rest-proxy
-    container_name: rest-proxy
     environment:
       # Similar networking concepts about listeners and all above
       KAFKA_REST_HOST_NAME: rest-proxy
       KAFKA_REST_BOOTSTRAP_SERVERS: "broker:29092"
       KAFKA_REST_LISTENERS: "http://0.0.0.0:8082"
       KAFKA_REST_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
+    ports:
+      - 8082:8082
